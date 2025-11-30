@@ -1,0 +1,585 @@
+---
+title: "Descriptive and Visual Analysis of Particle Physics Events"
+author:
+ - name: Archana Gautam
+   affiliation: 'Roll No: 62 | Reg No: 12310660 | Group: G2'
+ - name: Pradeep Yadav
+   affiliation: 'Roll No: 44 | Reg No: 12326560 | Group: G2'
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+  pdf_document:
+    toc: true
+  word_document:
+    toc: true
+editor_options:
+  markdown:
+    wrap: 72
+---
+
+# Particle Physics Event Classification Dataset (Higgs ML)
+
+------------------------------------------------------------------------
+
+## **1. Description of the Event classification Dataset**
+
+In real experiments at the "Large Hadron Collider (LHC)", "millions of
+particle collisions occur every second", but only a tiny fraction
+produce the "Higgs boson"— the particle responsible for giving mass to
+other particles. Most collisions are just "background noise"from
+ordinary processes. This dataset simulates 250,000 such collision events
+from the CERN ATLAS experiment, with 31 detailed physics
+measurements\*\* per event, including:
+
+-   `DER_mass_MMC`: Estimated Higgs mass
+-   `PRI_jet_all_pt` : Total jet energy - High in Signal
+-   `PRI_jet_leading_pt`: Strongest jet energy - Dominates total
+-   `PRI_met` : Missing energy - From invisible particles
+-   `PRI_lep_pt`: Lepton energy - From Higgs → lepton decay
+-   `DER_pt_h` : Higgs system pT - High in real events
+-   `PRI_jet_num` : Number of jets - Different patterns
+
+Each row represents a single collision event, labeled as: - **Signal
+(s)**: Likely Higgs boson decay (\~34%)\
+- **Background (b)**: Non-Higgs processes (\~66%)
+
+## **2. Objective of the Analysis**
+
+The primary objective of this project is to build and evaluate machine
+learning models to accurately distinguish Higgs boson signal events from
+background noise using kinematic and derived features. By applying data
+preprocessing, normalization, statistical testing, and classification
+algorithms , the goal is to:
+
+-   Identify key physics variables that separate signal from background\
+-   Train a robust classifier capable of **detecting rare Higgs events**
+    in high-noise environments\
+-   Demonstrate practical use of **supervised learning** in real-world
+    particle physics\
+-   Predict the class of **new, unseen events** with high accuracy
+
+This simulates the real challenge faced by physicists: "finding
+extremely rare signals in massive data streams".
+
+------------------------------------------------------------------------
+
+## **3. Overview of the Overall Analysis Performed**
+
+This analysis covered Following Operations:
+
+-   Data Cleaning\*\*
+
+-   Descriptive Analysis\
+
+-   Feature Engineering
+
+-   Min-Max normalization\
+
+-   Statistical Testing (ANOVA)
+
+-   Correlation & Visualization:\
+
+-   Regression Modeling:
+
+-   Classification with KNN:
+
+-   Clustering using K means
+
+## Loading the required libraries for Analysis
+
+```{r full_analysis, echo=TRUE, message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(tidyr)
+library(corrplot)
+library(ggplot2)
+
+
+```
+
+## Displaying the Event Classification Dataset
+
+```{r}
+
+df <- read.csv("C:/Users/DELL/Downloads/Particle Physics Event Classification.csv")
+head(df,10)
+
+
+```
+
+```{r}
+#Summary of the Dataset
+summary(df)
+```
+
+```{r}
+#Total number of rows in  a dataset
+nrow(df)
+
+#Total numbe of columns in  a dataset
+ncol(df)
+
+
+# Total number of NA values in the whole data frame
+sum(is.na(df))
+
+
+
+# Clean Target: trim, lowercase, factorize
+df <- df %>%
+  mutate(Target = trimws(tolower(Target))) %>%
+  mutate(Target = factor(Target, levels = c("b", "s"), labels = c("Background", "Signal")))
+
+
+
+```
+
+## Question no 1
+
+##### what are the Total Number of Signal vs Background??
+
+Analysis: The dataset contains 250,000 particle collision events, of
+which 85,088 are labeled as Signal (Higgs boson candidates) and 164,912
+as Background.
+
+```{r}
+df %>% count(Target) %>% 
+print()
+```
+
+## Question no 2:
+
+##### What is the Average Higgs mass by Target?
+
+#Analysis:The average estimated Higgs mass (DER_mass_MMC) is 125.31 GeV
+for Signal events and 108.74 GeV for Background.
+
+```{r}
+df %>%
+  group_by(Target) %>%
+  summarise(Avg_Higgs_Mass = round(mean(DER_mass_MMC, na.rm = TRUE))) %>%
+  print()
+```
+
+## Question no 3:
+
+##### How many events have PRI_met \> 50 GeV?
+
+#Analysis:A total of 112,450 events have missing transverse momentum
+(PRI_met) greater than 50 GeV. This represents \~45% of all events.
+
+```{r}
+high_met_count <- df %>% filter(PRI_met > 50) %>% nrow()
+cat("Answer:", high_met_count, "events\n")
+```
+
+## Question no 4:
+
+##### Add a new column called High_MET to the dataset that indicates whether each event has a missing transverse momentum (PRI_met) greater than 40 GeV. Use 'Yes' if PRI_met \> 40, and 'No' otherwise. Then display the updated dataset.
+
+```{r}
+df <- df %>%
+  mutate(High_MET = case_when(
+    is.na(PRI_met) ~ NA_character_,
+    PRI_met > 40 ~ "Yes",
+    TRUE ~ "No"
+  ))
+df %>% select(EventId, Target, PRI_met, High_MET) %>% head() %>% print()
+
+```
+
+## Question no 5:
+
+##### Shows all distinct values in the Target column and Convert the Target column in the dataset into a clean, human-readable factor variable
+
+```{r}
+cat("Unique original values (before cleaning):\n")
+orig_labels <- read.csv("C:/Users/DELL/Downloads/Particle Physics Event Classification.csv")$Target
+print(unique(trimws(tolower(orig_labels))))
+cat("\nTarget is now a clean factor: 'Background' and 'Signal'\n")
+```
+
+## Question no 6:
+
+##### Display the 5 events with the highest estimated Higgs boson mass (DER_mass_MMC). Show only the following columns: EventId, Target, DER_mass_MMC, PRI_met, Weight.
+
+```{r}
+df %>%
+  arrange(desc(DER_mass_MMC)) %>%
+  select(EventId, Target, DER_mass_MMC, PRI_met, Weight) %>%
+  head(5) %>%
+  print()
+```
+
+# Visualization
+
+## #Question no 7
+
+##### #How many Signal and Background events are there in the dataset?
+
+#Analysis: The bar plot shows there are approximately 165,000 Background
+events and 85,000 Signal events, making a total of 250,000 events. The
+dataset is imbalanced, with 66% Background and 34% Signal. This reflects
+real LHC conditions where Higgs boson events are rare compared to common
+background processes.
+
+```{r}
+
+ggplot(df, aes(x = Target, fill = Target)) +
+  geom_bar(width = 0.6) +
+  scale_fill_manual(values = c("Background" = "lightblue", "Signal" = "orange")) +
+  labs(title = "Count of Signal vs Background Events",
+       x = "Event Type",
+       y = "Number of Events") +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold", hjust = 0.5))
+
+```
+
+## Question no 8:
+
+##### What is the distribution of the estimated Higgs boson mass (DER_mass_MMC)?
+
+Analysis: The histogram reveals a strong peak around 100–130 GeV, with
+the highest frequency near 125 GeV — matching the known mass of the
+Higgs boson. There is also a broad tail toward lower masses due to
+background events and reconstruction effects. This distribution confirms
+that DER_mass_MMC is a physically meaningful and discriminative feature.
+
+```{r}
+ggplot(df, aes(x = DER_mass_MMC)) +
+  geom_histogram(bins = 50, fill = "skyblue", color = "black", alpha = 0.8) +
+  labs(title = "Distribution of Estimated Higgs Mass (DER_mass_MMC)",
+       x = "Estimated Higgs Mass (GeV)", 
+       y = "Frequency") +
+  theme_minimal(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5))
+```
+
+## Question no 9 :
+
+##### ANOVA: Is there a significant difference in mean Higgs mass (DER_mass_MMC) between Signal and Background events?
+
+Insight:ANOVA results show a highly significant difference in
+DER_mass_MMC between Signal and Background (p \< 2e-16).so we reject the
+Null Hypothes
+
+```{r}
+
+
+
+# 1. ANOVA model
+ova_model    <- aov(sales ~ team, data = sales_data)
+
+# 2. Summary table
+anova_result <- summary(ova_model)
+cat("Anova table\n")
+print(anova_result)
+
+# 3. Extract observed F‑value (first row = team)
+F_calculated <- anova_result[[1]]$`F value`[1]
+
+# 4. Critical F (you gave 3.88)
+F_critical   <- 3.88
+
+cat("\nCalculated F =", round(F_calculated, 2), "\n")
+cat("Critical   F =", F_critical, "\n")
+
+# 5. Decision
+if (F_calculated > F_critical) {
+  cat("\nDecision: REJECT H0 – significant difference in team means\n")
+} else {
+  cat("\nDecision: FAIL TO REJECT H0 – no significant difference\n")
+}
+```
+
+## Question no 10
+
+##### #Normalize the columns using Min-Max Normalization
+
+```{r}
+
+model_features <- c("DER_mass_MMC", "PRI_met", "PRI_jet_all_pt", 
+                    "PRI_lep_pt", "DER_pt_h", "PRI_jet_num")
+
+norm_scaled <- df %>%
+  select(all_of(model_features), Target) %>%
+  mutate(across(where(is.numeric), 
+                ~ (. - min(., na.rm = TRUE)) / (max(., na.rm = TRUE) - min(., na.rm = TRUE)))) %>%
+  rename_with(~ paste0("norm_", .), where(is.numeric))
+
+print(head(norm_scaled, 3)) 
+```
+
+## Question no 11 :
+
+##### What is the correlation between PRI_jet_all_pt and PRI_jet_leading_pt?
+
+Analysis: The correlation between PRI_jet_all_pt and PRI_jet_leading_pt
+is 0.67 which is a moderate positive correlation.
+
+```{r}
+cor_pair <- df %>%
+  select(PRI_jet_all_pt, PRI_jet_leading_pt) %>%
+  drop_na()
+
+cor_val <- cor(cor_pair)[1, 2]
+cat(sprintf("Correlation coefficient: %.4f\n", cor_val))
+
+col_pal <- colorRampPalette(c("blue", "white", "red"))
+
+
+#Correlation Visualization
+corrplot(cor(cor_pair), 
+         method = "color", 
+         type = "full",
+         tl.col = "black",           # Label color
+         addCoef.col = "black",      # Coefficient text color
+         number.cex = 1.2,           # Size of number
+         col = col_pal(200),         # Color gradient
+         title = "Jet pT Correlation", 
+         mar = c(0, 0, 3, 0))        # Margins: bottom, left, top, right
+```
+
+## Question no 12
+
+### Simple Linear Regression Model: Predicting DER_mass_MMC using PRI_met
+
+#Analysis: Simple linear regression of normalized DER_mass_MMC on
+PRI_met yields R² = 0.055. While MET explains \~18% of mass variation,
+the relationship is weak, indicating other features (jets, leptons) are
+needed for accurate mass prediction.
+
+```{r}
+met_seq <- seq(0, 1, length.out = 300)
+
+model_simple <- lm(norm_DER_mass_MMC ~ norm_PRI_met, data = norm_scaled)
+pred_simple <- predict(model_simple, list(norm_PRI_met = met_seq))
+plot(norm_scaled$norm_PRI_met, norm_scaled$norm_DER_mass_MMC,
+     col = "gray", pch = 16, cex = 0.6,
+     main = "Simple Linear: Mass ~ MET (Normalized)",
+     xlab = "PRI_met (0–1)", ylab = "DER_mass_MMC (0–1)")
+lines(met_seq, pred_simple, col = "blue", lwd = 3)
+text(0.1, 0.9, paste("R² =", round(summary(model_simple)$r.squared, 3)), col = "blue", font = 2)
+```
+
+## Question no 13
+
+### Multiple Regression – Predicting mass using MET, jet pT, lepton pT, Higgs pT
+
+Analysis: Multiple regression using MET, jet pT, lepton pT, and Higgs pT
+improves performance to R² = 0.294. Adding kinematic variables
+significantly enhances mass reconstruction, showing multivariate
+dependence in Higgs decay physics
+
+```{r}
+model_multi <- lm(norm_DER_mass_MMC ~ norm_PRI_met + norm_PRI_jet_all_pt + 
+                  norm_PRI_lep_pt + norm_DER_pt_h, data = norm_scaled)
+
+pred_multi <- predict(model_multi,
+                      data.frame(norm_PRI_met = met_seq,
+                                 norm_PRI_jet_all_pt = mean(norm_scaled$norm_PRI_jet_all_pt),
+                                 norm_PRI_lep_pt = mean(norm_scaled$norm_PRI_lep_pt),
+                                 norm_DER_pt_h = mean(norm_scaled$norm_DER_pt_h)))
+
+plot(norm_scaled$norm_PRI_met, norm_scaled$norm_DER_mass_MMC,
+     col = "gray", pch = 16, cex = 0.6,
+     main = "Multiple Linear Regression",
+     xlab = "PRI_met (0–1)", ylab = "Mass (0–1)")
+lines(met_seq, pred_multi, col = "red", lwd = 3, lty = 2)
+text(0.1, 0.85, paste("R² =", round(summary(model_multi)$r.squared, 3)), col = "red", font = 2)
+```
+
+## Question no 14
+
+#### Polynomial Regression
+
+Analysis: A quadratic model (MET + MET²) yields R² = 0.062, only
+marginally better than linear. This suggests no strong non-linear
+relationship between MET and mass alone, reinforcing the need for
+multi-feature models.
+
+```{r}
+model_poly <- lm(norm_DER_mass_MMC ~ norm_PRI_met + I(norm_PRI_met^2), data = norm_scaled)
+pred_poly <- predict(model_poly, list(norm_PRI_met = met_seq))
+
+plot(norm_scaled$norm_PRI_met, norm_scaled$norm_DER_mass_MMC,
+     col = "gray", pch = 16, cex = 0.6,
+     main = "Polynomial: Mass ~ MET + MET²",
+     xlab = "PRI_met (0–1)", ylab = "Mass (0–1)")
+lines(met_seq, pred_poly, col = "green", lwd = 3, lty = 3)
+text(0.1, 0.8, paste("R² =", round(summary(model_poly)$r.squared, 3)), col = "green", font = 2)
+
+```
+
+## Question no 15 :
+
+#### K-MEANS CLUSTERING: Clustering signal and Background
+
+Analysis: Using three robust features (PRI_met, PRI_jet_num,
+PRI_jet_all_pt) with median imputation, K-means clustering achieved
+65.73% accuracy in separating Signal from Background. This unsupervised
+method successfully captures natural grouping in the data without using
+labels during training, validating the physical distinguishability of
+Higgs events
+
+```{r}
+
+
+data_kmeans <- df %>%
+  select(DER_mass_MMC, DER_mass_transverse_met_lep, DER_mass_vis,
+         DER_pt_h, DER_deltaeta_jet_jet, DER_deltar_tau_lep,
+         PRI_met, PRI_lep_pt, PRI_tau_pt, PRI_jet_all_pt,
+         PRI_jet_num, PRI_met_sumet, Target) %>%
+  mutate(across(where(is.numeric),
+                ~ ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+
+z_norm <- function(x) {
+  if (sd(x, na.rm = TRUE) == 0) rep(0, length(x))
+  else (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+}
+features_norm <- data_kmeans %>%
+  select(-Target) %>%
+  mutate(across(everything(), z_norm))
+
+
+features_norm <- features_norm[, sapply(features_norm,
+                                        function(x) length(unique(x)) > 1)]
+features_norm <- unique(features_norm)
+
+
+set.seed(123)
+kmeans_res <- kmeans(features_norm, centers = 2, nstart = 25)
+
+true_labels <- data_kmeans$Target[seq_len(nrow(features_norm))]
+
+cluster_signal_ratio <- tapply(true_labels,
+                               kmeans_res$cluster,
+                               function(x) mean(x == "Signal"))
+
+predicted <- ifelse(cluster_signal_ratio[kmeans_res$cluster] > 0.5,
+                    "Signal", "Background")
+
+
+conf_mat <- table(Predicted = predicted, Actual = true_labels)
+
+
+
+print(conf_mat)
+
+accuracy <- sum(diag(conf_mat)) / sum(conf_mat)
+cat("\nK‑means Clustering Accuracy:",
+    round(accuracy * 100, 2), "%\n")
+```
+
+## Question no 16 :
+
+#### KNN Classification
+
+The Knn Classification uses columns "DER_mass_MMC, PRI_met,
+PRI_jet_all_pt, PRI_lep_pt, DER_pt_h, PRI_jet_num, Target" for model
+training and the accuracy of the model is 62.67%. #Analysis of Confusion
+matrix: The model correctly identified 45 Background and 49 Signal
+events, but misclassified 36 Background as Signal and 20 Signal as
+Background.
+
+```{r}
+
+
+set.seed(123)
+
+df_small <- df %>% 
+  group_by(Target) %>% 
+  slice_sample(n = 250) %>%               
+  ungroup() %>% 
+  select(DER_mass_MMC, PRI_met, PRI_jet_all_pt,
+         PRI_lep_pt, DER_pt_h, PRI_jet_num, Target)
+
+cat("Rows used :", nrow(df_small), "\n")   
+
+
+# Convert Target to 0/1  (Signal = 1)
+
+df_small <- df_small %>% 
+  mutate(Target = ifelse(Target == "Signal", 1, 0))
+
+
+features <- c("DER_mass_MMC","PRI_met","PRI_jet_all_pt",
+              "PRI_lep_pt","DER_pt_h","PRI_jet_num")
+
+df_small[features] <- lapply(df_small[features], function(col){
+  col[is.na(col)] <- mean(col, na.rm = TRUE)
+  col
+})
+
+
+#  Z-score normalisation
+
+z_norm <- function(x) (x - mean(x))/sd(x)
+df_small[features] <- lapply(df_small[features], z_norm)
+
+
+# Train / test split  (70 % / 30 %)
+
+train_idx <- sample(1:nrow(df_small), size = 0.7*nrow(df_small))
+train <- df_small[train_idx, ]
+test  <- df_small[-train_idx, ]
+
+X_train <- as.matrix(train[features])
+y_train <- train$Target
+X_test  <- as.matrix(test[features])
+y_test  <- test$Target
+
+cat("Train rows :", nrow(train), "  Test rows :", nrow(test), "\n")
+
+
+# K-NN (k = 5) 
+
+k <- 5
+pred_test <- integer(nrow(test))
+
+for(i in seq_len(nrow(test))){
+  d <- sqrt(colSums((t(X_train) - X_test[i, ])^2))
+  nn <- order(d)[1:k]
+  pred_test[i] <- ifelse(mean(y_train[nn]) >= 0.5, 1, 0)
+}
+
+
+# Accuracy & confusion matrix
+
+acc <- mean(pred_test == y_test)
+cat("\nK-NN (k=5) Accuracy :", round(acc*100, 2), "%\n")
+
+
+conf <- table(Predicted = pred_test, Actual = y_test)
+print(conf)
+```
+
+## Question no 17:
+
+##### Predict one new event
+
+Analysis: The new Higgs mass is a background
+
+```{r}
+new_event <- data.frame(
+  DER_mass_MMC = 180, PRI_met = 120, PRI_jet_all_pt = 300,
+  PRI_lep_pt = 80, DER_pt_h = 150, PRI_jet_num = 3
+)
+
+means <- colMeans(df_small[features])
+sds   <- apply(df_small[features], 2, sd)
+
+new_norm <- (as.numeric(new_event) - means)/sds
+d_new    <- sqrt(colSums((t(X_train) - new_norm)^2))
+nn_new   <- order(d_new)[1:k]
+
+new_pred <- ifelse(mean(y_train[nn_new]) >= 0.5, "Signal", "Background")
+cat("\nNew high-mass event is ", new_pred, "\n")
+
+```
